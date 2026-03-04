@@ -8,12 +8,19 @@ const { Server } = require("socket.io");
 const multer = require("multer");
 const path = require("path");
 const cookieParser = require("cookie-parser");
+const RefreshToken = require("./models/RefreshToken");
+const { v4: uuidv4 } = require("uuid");
+const authRoutes = require("./routes/authRoutes");
+
 
 require("dotenv").config();
 
+const userRoutes = require("./routes/userRoutes");
+const User = require("./models/User");
+
 const Product = require("./models/Product");
 const Order = require("./models/Order");
-const User = require("./models/User");
+
 
 const JWT_SECRET = "supersecretkey";
 
@@ -29,6 +36,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const app = express();
+
 app.use(cookieParser());
 app.use(cors({
     origin: "http://localhost:3000",
@@ -38,6 +46,10 @@ app.use(cors({
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+
+
+
+app.use("/api/users", userRoutes);
 /* ================= DATABASE ================= */
 
 mongoose
@@ -60,20 +72,27 @@ io.on("connection", (socket) => {
     console.log("Yeni Bağlantı:", socket.id);
 });
 
+
+require("./socket/supportSocket")(io);
 /* ================= MIDDLEWARE ================= */
 
 function verifyToken(req, res, next) {
-    const token = req.cookies.token;
+    const token = req.cookies.accessToken;  // 🔥 BURASI DEĞİŞTİ
 
-    console.log("COOKIE TOKEN:", token);
+    console.log("COOKIE ACCESS TOKEN:", token);
 
     if (!token)
         return res.status(401).json({ message: "Token gerekli" });
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(
+            token,
+            process.env.ACCESS_SECRET
+        );
+
         req.user = decoded;
         next();
+
     } catch (err) {
         console.log("JWT ERROR:", err.message);
         return res.status(401).json({ message: "Geçersiz token" });
@@ -113,6 +132,7 @@ const adminRoutes = require("./routes/adminRoutes");
 console.log("productRoutes:", productRoutes);
 console.log("adminRoutes:", adminRoutes);
 
+app.use("/auth", authRoutes);
 app.use("/products", productRoutes);
 app.use("/admin", adminRoutes);
 
@@ -295,7 +315,7 @@ app.put("/orders/:id/complete", verifyToken, verifyAdmin, async (req, res) => {
         order.status = "completed";
         await order.save();
 
-        // 🔥 STOK GÜNCELLEMESİNİ HERKESE BİLDİR
+
         io.emit("stockUpdated", {
             productId: product._id,
             stock: product.stock
@@ -309,10 +329,6 @@ app.put("/orders/:id/complete", verifyToken, verifyAdmin, async (req, res) => {
 });
 
 
-
-
-
-
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -324,28 +340,151 @@ app.post("/login", async (req, res) => {
     if (!isMatch)
         return res.status(400).json({ message: "Şifre yanlış" });
 
-    const token = jwt.sign(
+    // ACCESS TOKEN
+    const accessToken = jwt.sign(
         { id: user._id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: "1d" }
+        process.env.ACCESS_SECRET,
+        { expiresIn: "15m" }
     );
 
-    res.cookie("token", token, {
+    // 🔑 JTI ÖNCE OLUŞTURULUR
+    const jti = uuidv4();
+
+    // REFRESH TOKEN
+    const rawRefreshToken = jwt.sign(
+        { id: user._id, jti },
+        process.env.REFRESH_SECRET,
+        { expiresIn: "7d" }
+    );
+
+    const hashedToken = await bcrypt.hash(rawRefreshToken, 10);
+
+    await RefreshToken.create({
+        userId: user._id,
+        jti,
+        tokenHash: hashedToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        userAgent: req.headers["user-agent"],
+        ipAddress: req.ip
+    });
+
+    res.cookie("accessToken", accessToken, {
         httpOnly: true,
-        secure: false,      // localhost için false
-        sameSite: "lax",    // önemli
-        path: "/",          // önemli
+        sameSite: "lax",
+        secure: false,
+        path: "/"
+    });
+
+    res.cookie("refreshToken", rawRefreshToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        path: "/"
     });
 
     res.json({ role: user.role });
 });
+app.use("/uploads", express.static("uploads"));
 
+app.post("/refresh-token", async (req, res) => {
 
-app.post("/logout", (req, res) => {
-    res.clearCookie("token");
-    res.json({ message: "Çıkış yapıldı." })
+    const token = req.cookies.refreshToken;
+
+    if (!token)
+        return res.status(401).json({ message: "Refresh token yok" });
+
+    let decoded;
+
+    try {
+        decoded = jwt.verify(token, process.env.REFRESH_SECRET);
+    } catch (err) {
+        return res.status(403).json({ message: "Geçersiz refresh token" });
+    }
+
+    const storedToken = await RefreshToken.findOne({ jti: decoded.jti });
+
+    if (!storedToken)
+        return res.status(403).json({ message: "Token DB'de yok" });
+
+    const isMatch = await bcrypt.compare(token, storedToken.tokenHash);
+
+    if (!isMatch) {
+        await storedToken.deleteOne();
+        return res.status(403).json({ message: "Token eşleşmiyor" });
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+        await storedToken.deleteOne();
+        return res.status(403).json({ message: "Refresh süresi dolmuş" });
+    }
+
+    // 🔄 ROTATION
+    await storedToken.deleteOne();
+
+    const newJti = uuidv4();
+
+    const newRawRefreshToken = jwt.sign(
+        { id: decoded.id, jti: newJti },
+        process.env.REFRESH_SECRET,
+        { expiresIn: "7d" }
+    );
+
+    const newHashedToken = await bcrypt.hash(newRawRefreshToken, 10);
+
+    await RefreshToken.create({
+        userId: decoded.id,
+        jti: newJti,
+        tokenHash: newHashedToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        userAgent: req.headers["user-agent"],
+        ipAddress: req.ip
+    });
+
+    const user = await User.findById(decoded.id);
+
+    const newAccessToken = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.ACCESS_SECRET,
+        { expiresIn: "15m" }
+    );
+
+    res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        path: "/"
+    });
+
+    res.cookie("refreshToken", newRawRefreshToken, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: false,
+        path: "/"
+    });
+
+    res.json({ message: "Token yenilendi" });
 });
-/* ================= START ================= */
+
+
+app.post("/logout", async (req, res) => {
+
+    const token = req.cookies.refreshToken;
+
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.REFRESH_SECRET);
+            await RefreshToken.deleteOne({ jti: decoded.jti });
+        } catch (err) {
+            // geçersizse de cookie temizlenecek
+        }
+    }
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.json({ message: "Çıkış yapıldı." });
+});
+
 
 server.listen(5000, () => {
     console.log("Server 5000 portunda çalışıyor 🚀");
