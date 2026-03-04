@@ -34,9 +34,9 @@ export default function ProductForm({ onSubmit, initialData }: Props) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md space-y-4 max-w-xl">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md space-y-4 max-w-xl text-gray-900 dark:text-gray-100">
       <input
-        className="w-full border p-2 rounded"
+        className="w-full border dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white"
         placeholder="Ürün Adı"
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -44,7 +44,7 @@ export default function ProductForm({ onSubmit, initialData }: Props) {
 
       <input
         type="number"
-        className="w-full border p-2 rounded"
+        className="w-full border dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white"
         placeholder="Fiyat"
         value={form.price}
         onChange={(e) =>
@@ -54,7 +54,7 @@ export default function ProductForm({ onSubmit, initialData }: Props) {
 
       <input
         type="number"
-        className="w-full border p-2 rounded"
+        className="w-full border dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white"
         placeholder="Stok"
         value={form.stock}
         onChange={(e) =>
@@ -63,14 +63,14 @@ export default function ProductForm({ onSubmit, initialData }: Props) {
       />
 
       <textarea
-        className="w-full border p-2 rounded"
+        className="w-full border dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white"
         placeholder="Açıklama"
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
 
       <textarea
-        className="w-full border p-2 rounded"
+        className="w-full border dark:border-gray-600 p-2 rounded dark:bg-gray-700 dark:text-white"
         placeholder="Özellikler"
         value={form.features}
         onChange={(e) => setForm({ ...form, features: e.target.value })}
@@ -80,7 +80,7 @@ export default function ProductForm({ onSubmit, initialData }: Props) {
 
       <button
         onClick={() => onSubmit(form)}
-        className="bg-black text-white px-4 py-2 rounded"
+        className="bg-black dark:bg-white text-white dark:text-black font-medium px-4 py-2 rounded"
       >
         Kaydet
       </button>

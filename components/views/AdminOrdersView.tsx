@@ -10,7 +10,7 @@ export default function OrdersPage() {
   const { orders, deleteOrder } = context;
 
   return (
-    <div>
+    <div className="text-gray-900 dark:text-gray-100">
       <h1 className="text-3xl font-bold mb-6">Siparişler</h1>
 
       {orders.length === 0 ? (
@@ -20,7 +20,7 @@ export default function OrdersPage() {
           {orders.map((order) => (
             <div
               key={order.id}
-              className="bg-white p-6 rounded-xl shadow"
+              className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow"
             >
               <p><strong>Tarih:</strong> {order.date}</p>
               <p><strong>Toplam:</strong> {order.total} TL</p>

@@ -1,14 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CartContext } from "@/context/CartContext";
+import { useCartStore } from "@/store/cartStore";
 
 export default function Navbar() {
+
   const router = useRouter();
-  const context = useContext(CartContext);
-  const cart = context?.cart || [];
+
+  // Zustand cart
+  const cartItems = useCartStore((state) => state.cartItems);
+
+  const totalQuantity = cartItems.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
+
+  // Persist hydration fix
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [role, setRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -26,34 +40,41 @@ export default function Navbar() {
 
   return (
     <div className="bg-gray-900 text-white px-8 py-4 flex justify-between items-center shadow-lg">
+
+      {/* LOGO */}
       <Link href="/shop" className="text-2xl font-bold tracking-wide">
         TECHNOMARKT
       </Link>
 
       <div className="flex items-center gap-6">
 
-        {/* Sepet sadece user için */}
+        {/* 🛒 USER CART */}
         {role === "user" && (
-          <Link href="/shop/cart" className="relative hover:text-indigo-400 transition">
-            Sepet
-            {cart.length > 0 && (
-              <span className="absolute -top-2 -right-4 bg-red-500 text-xs px-2 py-1 rounded-full">
-                {cart.length}
+          <Link
+            href="/cart"
+            className="relative hover:text-indigo-400 transition text-xl"
+          >
+            🛒
+
+            {mounted && totalQuantity > 0 && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs px-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full font-bold">
+                {totalQuantity > 99 ? "99+" : totalQuantity}
               </span>
             )}
           </Link>
         )}
 
-        {/* Login yoksa */}
+        {/* LOGIN */}
         {!role && (
           <Link href="/login" className="hover:text-indigo-400 transition">
             Giriş
           </Link>
         )}
 
-        {/* Dropdown Menü */}
+        {/* DROPDOWN */}
         {role && (
           <div className="relative">
+
             <button
               onClick={() => setOpen(!open)}
               className="bg-gray-800 px-4 py-2 rounded-lg hover:bg-gray-700 transition"
@@ -67,11 +88,27 @@ export default function Navbar() {
                 {role === "user" && (
                   <>
                     <Link
-                      href="/my-orders"
+                      href="/user/profile"
                       className="block px-4 py-3 hover:bg-gray-700 transition"
                       onClick={() => setOpen(false)}
                     >
-                      Siparişlerim
+                      👤 Profilim
+                    </Link>
+
+                    <Link
+                      href="/user/my-orders"
+                      className="block px-4 py-3 hover:bg-gray-700 transition"
+                      onClick={() => setOpen(false)}
+                    >
+                      📦 Siparişlerim
+                    </Link>
+
+                    <Link
+                      href="/user/favorites"
+                      className="block px-4 py-3 hover:bg-gray-700 transition"
+                      onClick={() => setOpen(false)}
+                    >
+                      ❤️ Favorilerim
                     </Link>
                   </>
                 )}
@@ -85,6 +122,7 @@ export default function Navbar() {
                     >
                       Tüm Siparişler
                     </Link>
+
                     <Link
                       href="/admin"
                       className="block px-4 py-3 hover:bg-gray-700 transition"
@@ -101,10 +139,13 @@ export default function Navbar() {
                 >
                   Çıkış Yap
                 </button>
+
               </div>
             )}
+
           </div>
         )}
+
       </div>
     </div>
   );

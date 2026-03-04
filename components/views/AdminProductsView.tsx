@@ -39,7 +39,7 @@ export default function AdminProductsView() {
       {products.map((product) => (
         <div
           key={product._id}
-          className="bg-white p-4 rounded shadow flex justify-between"
+          className="bg-white dark:bg-gray-800 dark:text-gray-100 p-4 rounded shadow flex justify-between"
         >
           <div>
             <h2 className="font-bold">{product.name}</h2>

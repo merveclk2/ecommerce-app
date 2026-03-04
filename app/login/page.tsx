@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import api from "@/lib/axios";
 
 export default function LoginPage() {
@@ -9,13 +10,14 @@ export default function LoginPage() {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError("");
         setLoading(true);
+
+        // ⏳ Loading toast
+        const toastId = toast.loading("Giriş yapılıyor...");
 
         try {
             // 🔐 LOGIN
@@ -25,6 +27,9 @@ export default function LoginPage() {
             const meRes = await api.get("/me");
             const user = meRes.data;
 
+            // ✅ Success toast
+            toast.success("Giriş başarılı 🎉", { id: toastId });
+
             // 🔁 ROUTE
             if (user.role === "admin") {
                 router.replace("/admin/orders");
@@ -33,20 +38,22 @@ export default function LoginPage() {
             }
 
         } catch (err: any) {
-            if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else if (err.response?.status === 401) {
-                setError("Email veya şifre hatalı");
+
+            if (err.response?.status === 401) {
+                toast.error("Email veya şifre hatalı", { id: toastId });
+            } else if (err.response?.data?.message) {
+                toast.error(err.response.data.message, { id: toastId });
             } else {
-                setError("Sunucu hatası");
+                toast.error("Sunucu hatası", { id: toastId });
             }
+
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-pink-100">
+        <div className="min-h-screen flex items-center justify-center bg-background text-text">
 
             <div className="bg-white shadow-xl rounded-2xl p-10 w-[380px] border border-rose-200">
 
@@ -74,20 +81,16 @@ export default function LoginPage() {
                         className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400 transition"
                     />
 
-                    {error && (
-                        <p className="text-red-500 text-sm text-center">{error}</p>
-                    )}
-
                     <button
                         type="submit"
-                        className="w-full py-3 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium transition"
+                        disabled={loading}
+                        className="w-full py-3 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium transition disabled:opacity-70"
                     >
-                        Giriş Yap
+                        {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
                     </button>
 
                 </form>
             </div>
         </div>
     );
-
 }

@@ -1,10 +1,10 @@
 import "./globals.css";
-
-import { ProductProvider } from "@/context/ProductContext";
-import { CartProvider } from "@/context/CartContext";
-import { OrderProvider } from "@/context/OrderContext";
-import { ThemeProvider } from "@/context/ThemeContext";
-import { AuthProvider } from "@/context/AuthContext";
+import Providers from "./Providers";
+import ThemeToggle from "@/components/ThemeToggle";
+import { Toaster } from "sonner";
+import { LanguageProvider } from "@/context/LanguageContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import FloatingActions from "@/components/FloatingActions";
 
 export const metadata = {
   title: "MyShop",
@@ -18,18 +18,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr">
-      <body className="bg-gray-100">
-        <AuthProvider>
-          <ThemeProvider>
-            <ProductProvider>
-              <CartProvider>
-                <OrderProvider>
-                  {children}
-                </OrderProvider>
-              </CartProvider>
-            </ProductProvider>
-          </ThemeProvider>
-        </AuthProvider>
+      <body className="min-h-screen bg-white dark:bg-gray-900 text-black dark:text-white transition-colors duration-300">
+        <LanguageProvider>
+          <Providers>
+            <div className="fixed top-6 right-6 z-50 flex gap-3">
+              <ThemeToggle />
+              <LanguageSwitcher />
+            </div>
+            {/* 🔥 SONNER GLOBAL */}
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              expand={true}
+            />
+
+            {children}
+            <FloatingActions />
+
+          </Providers>
+        </LanguageProvider>
       </body>
     </html>
   );

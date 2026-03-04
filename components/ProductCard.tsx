@@ -14,10 +14,10 @@ export default function ProductCard({
     onAddToCart,
 }: ProductCardProps) {
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-md hover:shadow-2xl transition duration-300 border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md hover:shadow-2xl transition duration-300 border border-gray-100 dark:border-gray-700">
 
             {/* Ürün Görsel Alanı */}
-            <div className="h-48 bg-gray-100 rounded-xl mb-4 flex items-center justify-center overflow-hidden">
+            <div className="h-48 bg-gray-100 dark:bg-gray-700 rounded-xl mb-4 flex items-center justify-center overflow-hidden">
                 {product.image ? (
                     <img
                         src={`http://localhost:5000${product.image}`}
@@ -30,14 +30,14 @@ export default function ProductCard({
             </div>
 
             {/* Ürün Bilgisi */}
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
                 {product.name}
             </h2>
 
             <p className="text-xl font-bold text-green-600 mb-4">
                 ₺{product.price}
             </p>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 Stok: {product.stock}
             </p>
 
@@ -50,7 +50,7 @@ export default function ProductCard({
                     max={product.stock}
                     value={quantity}
                     onChange={(e) => setQuantity(Number(e.target.value))}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-gray-700 dark:text-white"
                 />
             </div>
 
@@ -58,13 +58,12 @@ export default function ProductCard({
                 disabled={product.stock === 0}
                 onClick={() => onAddToCart({ ...product, quantity })}
                 className={`w-full py-2 px-4 rounded-lg transition duration-200 ${product.stock === 0
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-black text-white hover:bg-gray-800"
+                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                    : "bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
                     }`}
             >
                 {product.stock === 0 ? "Tükendi" : "Sepete Ekle"}
             </button>
-
         </div>
     );
 }

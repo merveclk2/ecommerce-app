@@ -1,60 +1,73 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 import api from "@/lib/axios";
-
-interface User {
-    _id: string;
-    role: string;
-    name: string;
-}
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { connectSocket, disconnectSocket } from "@/app/socket";
 
 interface AuthContextType {
-    user: User | null;
+    user: any;
     loading: boolean;
-    logout: () => Promise<void>;
+    login: (data: { email: string; password: string }) => void;
+    logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
 
+    // 👤 USER BİLGİSİ
+    const { data: user, isLoading } = useQuery({
+        queryKey: ["me"],
+        queryFn: async () => {
+            const res = await api.get("/auth/me");
+            return res.data;
+        },
+        retry: false,
+    });
+
+    // 🔐 LOGIN
+    const loginMutation = useMutation({
+        mutationFn: async (data: { email: string; password: string }) => {
+            await api.post("/auth/login", data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["me"] });
+        },
+    });
+
+    // 🚪 LOGOUT
+    const logoutMutation = useMutation({
+        mutationFn: async () => {
+            await api.post("/auth/logout");
+        },
+        onSuccess: () => {
+            disconnectSocket(); // 🔥 logout olunca socket kapat
+            queryClient.removeQueries({ queryKey: ["me"] });
+        },
+    });
+
+    // 🔥 USER GELİNCE SOCKET BAĞLA
     useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const res = await api.get("/me");
-                setUser(res.data);
-            } catch (err: any) {
-                if (
-                    err.response?.status === 401 ||
-                    err.response?.status === 403
-                ) {
-                    setUser(null);
-                } else {
-                    console.log("ME axios error:", err);
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchUser();
-    }, []);
-
-    const logout = async () => {
-        await fetch("http://localhost:5000/logout", {
-            method: "POST",
-            credentials: "include",
-        });
-
-        setUser(null);
-        window.location.href = "/login";
-    };
+        if (user) {
+            connectSocket({
+                userId: user._id,
+                username: user.username ?? user.email ?? "User",
+                role: user.role,
+            });
+        }
+    }, [user]);
 
     return (
-        <AuthContext.Provider value={{ user, loading, logout }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                loading: isLoading,
+                login: loginMutation.mutate,
+                logout: logoutMutation.mutate,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );
